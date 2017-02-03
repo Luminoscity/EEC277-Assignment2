@@ -1,0 +1,105 @@
+% GraphicsPipelineWriteup.tex 
+% Tim Ambrose
+% 13 January 2017
+\documentclass[12pt, oneside]{amsart}
+\usepackage{geometry}
+\usepackage{listings}
+\geometry{letterpaper, margin=1.75in}
+%\geometry{landscape}                		% Activate for rotated page geometry
+%\usepackage[parfill]{parskip}    		% Activate to begin paragraphs with an empty line rather than an indent
+\usepackage{graphicx}				
+\usepackage{amssymb}
+\usepackage{amsmath}
+
+\DeclareMathOperator{\OBS}{OBS}
+
+
+%The purpose of Assignment 2 is to explore measurement and performance analysis of graphics hardware. In one sense, measuring graphics hardware is a little bit easier than microprocessors in that graphics hardware does a specific task (graphics) rather than more general tasks, so testing can be more focused. But on the other hand, graphics hardware is much more closed architecturally than a microprocessor, so it's difficult to know exactly what's happening under the hood.
+%
+%The assignment has two parts; all students will do both parts. We are releasing only one part at first, on characterizing graphics performance. The next part will focus on reverse-engineering graphics functionality. I prefer that you do this assignment in groups of 2.
+%Part 1: Measurement and Performance Analysis
+%
+%The graphics characterization part was written by Wes Bethel at Lawrence Berkeley Laboratory (thanks Wes!) and slightly modified (to make it more of an instructional assignment, and more recently to use glfw) by me. The files are on github: https://github.com/ucdavis/eec277-w17 (Links to an external site.). (Get UCD github access as follows: "Visit http://itcatalog.ucdavis.edu/service/github and click the 'GET GITHUB!' button." Also email your instructor with your gihub ID to get access to this repo.)
+%
+%The major deliverable for this part of the assignment is to write up the results for the investigation of the crossover point between geometry and rasterization. It is expected this writeup will contain data in the form of graphs and associated explanations. However, being brief while being complete is appreciated.
+%
+%The key goal of this part of the assignment is to explore the crossover point between geometry and rasterization.
+%
+%Modern graphics hardware can be generalized into two parallel components: geometry and rasterization. The performance of the graphics system is determined by the slower of these two components. For small triangles, the rasterization work per triangle is small so the system is limited by the rate at which vertices can be processed. For large triangles, the fragment operations dominate the rendering pipeline.
+%
+%WesBench is a benchmark program that allows you to make this characterization under different conditions. WesBench allows you to use different geometry input options; to enable texturing, lighting, or both; and to iterate over different triangle areas, different geometry batch sizes, or different texture sizes.
+%
+%In the source code, I have removed/altered the code that (a) calculates rendering (fill rate, vertex rate, etc.) performance and (b) iterates over triangle areas, geometry batch sizes, and texture sizes. All of these parts of the code are marked with TODO. This entire part of the assignment can be completed without writing a single line of OpenGL code?all changes are strictly C. However, it is vital that you understand the OpenGL code to benefit from this assignment. For those of you without much OpenGL experience, you will certainly have to do some investigation of the OpenGL calls used in the assignment.
+%
+%Especially for OpenGL rookies, make sure that you understand the following questions as you do the assignment (no need to write them up, but you need to understand them to benefit from the assignment):
+%
+%    Why do we use glDrawXXX calls rather than glBegin, glVertex, glEnd calls to draw geometry?
+%    What is wesBench actually drawing? Make sure you understand the matrix manipulation calls and the way the draw arrays are populated and what they represent.
+%    How does wesBench make sure that all geometry that it draws will pass through the entire pipeline (and affect the timing results) as opposed to getting clipped/culled/depth-tested out of the pipeline at an earlier stage (and thus making our results invalid)?
+%
+%Your writeup should answer the following questions:
+%
+%    How does the geometry rate (vertices/second) and fill rate (fragments/second) vary with triangle size? Why do you see this behavior? What is the crossover point of your GPU in terms of balance between geometry and rasterization? (-doareatest)
+%    How and why does the geometry/fill rate behavior / crossover point change when you (a) enable lighting (-light); (b) enable texturing (-tx); (c) enable texturing and lighting; (d) vary the triangle type (specifically, disjoint triangles vs. triangle strips) (-tt)?
+%    You will notice that at small batch sizes (batch size == amount of geometry sent in one call), the performance is limited by the CPU's ability to send work to the GPU ("interface-limited"). Roughly, at what batch size does your system stop being interface-limited and start being limited by the GPU? At that point, what is the geometry bandwidth between the CPU and the GPU? (-dovbtest)
+%    You will also notice in your texture tests that small texture sizes result in a faster fill rate than later texture sizes. Why? Calculate, characterize, and describe the relationship between (a) fill rate as a function of texture size and (b) texture bandwidth as a function of texture size. (-dotxtest)
+%
+%Part 2: Reverse Engineering
+%
+%(You must explore one complex feature or two simpler ones. You are welcome and encouraged to propose other interesting aspects to explore. Basically, you can negotiate with me what you want to do in terms of undocumented features. One-complex-or-two-simple-features should be a guideline as far as the amount of work I expect, though.)
+%
+%The microarchitectural features of graphics hardware are largely not disclosed to the public. This contrasts strongly with the microprocessor industry?every microprocessor will tell you, say, how big its data and instruction caches are, but no graphics hardware vendor would tell you the size of its texture cache.
+%
+%For performance reasons, it's interesting to discover these features, as well as for academic reasons. One goal of this part of the assignment is to assemble a library of code that will work on any OpenGL program that will automatically characterize a feature (with our texture cache example, for instance, it would automatically describe the characteristics of the texture cache).
+%
+%The deliverables for this part of the assignment are to implement a method or methods to determine hidden microarchitectural feature(s), and, in your writeup, to describe the methods and the results, using the submission guidelines in the syllabus. Ideally, the program you write should output the feature, as in "The texture cache on this machine is 16 KB." However, it might put out data points which can be further analyzed. Make sure you describe how an interested person can take the output of your program and determine the particulars of whatever architectural feature you've chosen.
+%
+%For those of you without much graphics background, these probably sound a little incomprehensible. That's OK; we'll cover them later in the class; but you need to do this assignment now. You need to do some Googling on these and then feel free to contact me to discuss any of them in more detail (google chat is fine too, I'm jowens, and you'll probably find this pretty convenient for short questions).
+%
+%Here are some examples of features to explore:
+%
+%    In a fragment or vertex program, demonstrate the crossover point between the program being limited by arithmetic and the program being limited by texture memory bandwidth. How does this vary as the texture accesses cache well vs. cache poorly?
+%    How precise are the native arithmetic operations in fragment/vertex programs like: pow, sin, cos, exp, etc?
+%    Is there a vertex cache that caches transformed vertices? How big is it? Is it slot-based or memory-based (in other words, does it have room for n vertices no matter what size those vertices are, or instead does it have m words of memory that can store many small vertices or a few large ones?)?
+%    What are the sample locations within a pixel with different sampling modes (different antialiasing levels)? For instance, if you set your graphics pipeline to sample 4 times per pixel, where are the 4 sample positions associated with that pixel? (This is fairly straightforward.) How are those samples combined to yield the final color of a pixel?
+%    What are the size of pixel tiles within your rendering pipeline? These can be tiles used for early z kill or tiles used in rasterization; are those tile sizes the same?
+%    How does your GPU rasterize?left to right or right to left or a mix? Top to bottom or bottom to top or a mix? Hierarchically?
+%    How big is the texture cache in your GPU? (This sounds straightforward, but experience from this class suggests that it's actually a really challenging thing to measure.)
+%    What are the characteristics of your cache? Direct-mapped cache? N-way associative? Are there multiple levels of cache?
+%    What is the texture cache miss penalty, measured in number of ALU cycles?
+%    How is texture laid out in memory (linear, Hilbert curve, z-curve, blocked, etc.)?
+%    Reverse-engineer the algorithm used in mipmapping on your GPU that calculates the mipmap level d.
+%    Can you determine if your GPU simultaneously runs fragment and vertex programs (some cores devoted to fragment programs at the same time as some cores devoted to vertex programs)?
+%    What are the rasterization shadow rules for your GPU? (This is simple.) Make sure to not only include edges that lie on sampling points but also vertices that lie on sampling points!
+%
+%Grading
+%
+%A high grade will be awarded if you demonstrate a good understanding of how graphics hardware could work. Coming up with the correct value for a particular performance metric is less important than how you analyze your results. You are not expected to know all of the details regarding the system you benchmark. Rather your grade will be determined by the tests you design and your analysis of the results.
+%Honor Code
+%
+%The full wesBench program is available on LBL's open-source website. It is an honor code violation to download or look at any source code from the full wesBench program. Please only use the instructional wesBench program. (Update: it's now at https://github.com/ucdavis/eec277-w17 (Links to an external site.).)
+
+\begin{document}
+\raggedright
+Tim Ambrose\\
+February 7th, 2017\\
+
+\center{\textsf{\large The Graphics Pipeline Explained for the Layperson\\} }
+\raggedright
+
+\bigskip
+Introduction, what is the graphics pipeline
+
+\bigskip
+Overview, the components of the pipeline
+
+\bigskip
+Application
+
+\bigskip
+Geometry
+
+\bigskip
+Rasterization
+
+\end{document}
