@@ -105,9 +105,6 @@ int main(int argc, char *argv[]) {
 		 << "SUCCESS! Shader Compiled and Linked!\n"
 		 << "Press [esc] to close window.\n";
 
-	//Always detach shaders after a successful link.
-	glDetachShader(program, computeShader);
-
 	while (!glfwWindowShouldClose(window))
 	{
 		GLenum err;               /* Everyone is puzzled why this matters. */
@@ -118,6 +115,9 @@ int main(int argc, char *argv[]) {
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
+
+	//Always detach shaders after a successful link.
+	glDetachShader(program, computeShader);
 
 	return 0;
 }
