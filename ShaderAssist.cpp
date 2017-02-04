@@ -8,8 +8,6 @@
 
 #include "ShaderAssist.h"
 
-//Angela test git push - 2
-
 ShaderAssist::ShaderAssist()
 {
 }

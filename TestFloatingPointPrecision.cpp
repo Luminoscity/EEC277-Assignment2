@@ -33,6 +33,7 @@ using std::vector;
 using std::cout;
 
 void CheckArgs(int argc, char *argv[]);
+void printLimits();
 static void error_callback(int error, const char* description);
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 void printInfo(GLFWwindow * window);
@@ -102,8 +103,35 @@ int main(int argc, char *argv[]) {
 	};
 
 	cout << "\n--------------------------------------------------\n"
-		 << "SUCCESS! Shader Compiled and Linked!\n"
-		 << "Press [esc] to close window.\n";
+		 << "SUCCESS! Shader Compiled and Linked!\n";
+
+	// declare texture size, the actual data will be a vector 
+	// of size texSize*texSize*4
+	int tex_w = 16, tex_h = 16;
+	// create test data
+	float* data = (float*)malloc(tex_w*tex_h * sizeof(float));
+	float* result = (float*)malloc(tex_w*tex_h * sizeof(float));
+	for (int i = 0; i<tex_w*tex_h; i++)
+		data[i] = i + 1.0;
+
+	printLimits();
+	cout << "\nStoring input data.\n";
+	GLuint buffers[2];
+	glGenBuffers(2, buffers);
+	//input buffer
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[0]);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(data), data, GL_DYNAMIC_DRAW);
+	//output buffer
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[1]);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(data), NULL, GL_DYNAMIC_READ);
+
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, buffers[0]);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, buffers[1]);
+	printf("Data before computation:\n");
+	for (int i = 0; i<tex_w*tex_h; i++)
+		printf("%f\n", data[i]);
+	cout << "Press [esc] to close window.\n";
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -111,11 +139,27 @@ int main(int argc, char *argv[]) {
 		err = glGetError();       /* But this error-checking makes it work */
 		glUseProgram(program);    /* on Linux */
 		err = glGetError();       /* Weird, huh? */
-		runTest();
+		//runTest();
+		glMemoryBarrier(GL_ALL_BARRIER_BITS);
+		glDispatchCompute(1, 1, 1);
+		glMemoryBarrier(GL_ALL_BARRIER_BITS);
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
 
+	// and read back
+	glUseProgram(0);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[1]);
+	glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(result), result);
+	// print out results
+	printf("Data after computation:\n");
+	for (int i = 0; i<tex_w*tex_h; i++)
+		printf("%f\n", result[i]);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+	// clean up
+	free(data);
+	free(result);
 	//Always detach shaders after a successful link.
 	glDetachShader(program, computeShader);
 
@@ -134,6 +178,30 @@ void CheckArgs(int argc, char *argv[]){
 		fprintf(stderr, "Could not open file: %s\n", argv[1]);
 		exit(-1);
 	}
+}
+
+void printLimits() {
+	int work_grp_cnt[3];
+
+	glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, &work_grp_cnt[0]);
+	glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1, &work_grp_cnt[1]);
+	glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2, &work_grp_cnt[2]);
+
+	printf("max global (total) work group size x:%i y:%i z:%i\n",
+		work_grp_cnt[0], work_grp_cnt[1], work_grp_cnt[2]);
+
+	int work_grp_size[3];
+
+	glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, &work_grp_size[0]);
+	glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, &work_grp_size[1]);
+	glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, &work_grp_size[2]);
+
+	printf("max local (in one shader) work group sizes x:%i y:%i z:%i\n",
+		work_grp_size[0], work_grp_size[1], work_grp_size[2]);
+
+	GLint work_grp_inv;
+	glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &work_grp_inv);
+	printf("max local work group invocations %i\n", work_grp_inv);
 }
 
 static void error_callback(int error, const char* description)
