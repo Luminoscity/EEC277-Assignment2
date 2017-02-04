@@ -37,7 +37,9 @@ static void error_callback(int error, const char* description);
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 void printInfo(GLFWwindow * window);
 void runTest();
+#pragma endregion
 
+#pragma region Main
 int main(int argc, char *argv[]) {
 	CheckArgs(argc, argv);
 
@@ -119,7 +121,9 @@ int main(int argc, char *argv[]) {
 
 	return 0;
 }
+#pragma endregion
 
+#pragma region Helper Functions
 void CheckArgs(int argc, char *argv[]){
 	if(argc != 2) {
 		fprintf(stderr, "Usage: %s shader_file\n", argv[0]);
@@ -172,8 +176,11 @@ void printInfo(GLFWwindow * window) {
 		vidMode->height);
 	printf("--------------------------------------------------\n");
 }
+#pragma endregion
 
+#pragma region Test
 void runTest() {
 	//glfwTerminate();
 	//exit(0);
 }
+#pragma endregion

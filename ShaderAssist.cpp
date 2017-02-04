@@ -3,7 +3,7 @@
 * Class by Tim Ambrose
 *
 * GLSL Setup Code 
-* and http://antongerdelan.net/opengl/compute.html
+* Shader Code from http://antongerdelan.net/opengl/compute.html
 */
 
 #include "ShaderAssist.h"
