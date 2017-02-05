@@ -37,13 +37,14 @@ void printLimits();
 static void error_callback(int error, const char* description);
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 void printInfo(GLFWwindow * window);
-void runTest();
+float runTest(int test, GLFWwindow *window);
 #pragma endregion
 
 #pragma region Main
 int main(int argc, char *argv[]) {
 	CheckArgs(argc, argv);
 
+	int testNum = atoi(argv[2]);
 	cout << "Setting up OpenGL context...\n";
 	glfwSetErrorCallback(error_callback);
 
@@ -103,35 +104,9 @@ int main(int argc, char *argv[]) {
 	};
 
 	cout << "\n--------------------------------------------------\n"
-		 << "SUCCESS! Shader Compiled and Linked!\n";
-
-	// declare texture size, the actual data will be a vector 
-	// of size texSize*texSize*4
-	int tex_w = 16, tex_h = 16;
-	// create test data
-	float* data = (float*)malloc(tex_w*tex_h * sizeof(float));
-	float* result = (float*)malloc(tex_w*tex_h * sizeof(float));
-	for (int i = 0; i<tex_w*tex_h; i++)
-		data[i] = i + 1.0;
+		 << "SUCCESS! Shader Compiled and Linked!\n\n";
 
 	printLimits();
-	cout << "\nStoring input data.\n";
-	GLuint buffers[2];
-	glGenBuffers(2, buffers);
-	//input buffer
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[0]);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(data), data, GL_DYNAMIC_DRAW);
-	//output buffer
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[1]);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(data), NULL, GL_DYNAMIC_READ);
-
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, buffers[0]);
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, buffers[1]);
-	printf("Data before computation:\n");
-	for (int i = 0; i<tex_w*tex_h; i++)
-		printf("%f\n", data[i]);
-	cout << "Press [esc] to close window.\n";
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -139,27 +114,11 @@ int main(int argc, char *argv[]) {
 		err = glGetError();       /* But this error-checking makes it work */
 		glUseProgram(program);    /* on Linux */
 		err = glGetError();       /* Weird, huh? */
-		//runTest();
-		glMemoryBarrier(GL_ALL_BARRIER_BITS);
-		glDispatchCompute(1, 1, 1);
-		glMemoryBarrier(GL_ALL_BARRIER_BITS);
+		runTest(testNum, window);
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
 
-	// and read back
-	glUseProgram(0);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[1]);
-	glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(result), result);
-	// print out results
-	printf("Data after computation:\n");
-	for (int i = 0; i<tex_w*tex_h; i++)
-		printf("%f\n", result[i]);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-
-	// clean up
-	free(data);
-	free(result);
 	//Always detach shaders after a successful link.
 	glDetachShader(program, computeShader);
 
@@ -169,9 +128,16 @@ int main(int argc, char *argv[]) {
 
 #pragma region Helper Functions
 void CheckArgs(int argc, char *argv[]){
-	if(argc != 2) {
-		fprintf(stderr, "Usage: %s shader_file\n", argv[0]);
+	char tests[] = { "tests:\n1: sin add\n2: cos add\n" };
+	int numTests = 2;
+	if(argc != 3) {
+		fprintf(stderr, "Usage: %s shader_file test_number\n", argv[0]);
+		printf("%s", tests);
 		exit(-1);
+	}
+	if (atoi(argv[2]) < 1 || atoi(argv[2]) > numTests) {
+		printf("Tests range from 1 to %d\n", numTests);
+		printf("%s", tests);
 	}
 	std::ifstream file(argv[1]);
 	if(!file.good()) {
@@ -247,8 +213,60 @@ void printInfo(GLFWwindow * window) {
 #pragma endregion
 
 #pragma region Test
-void runTest() {
-	//glfwTerminate();
-	//exit(0);
+float runTest(int test, GLFWwindow *window) {
+	//int tex_w = 16, tex_h = 16;
+	// create test data
+	//float* data = (float*)malloc(tex_w*tex_h * sizeof(float));
+	//float* result = (float*)calloc(tex_w*tex_h, sizeof(float));
+	//for (int i = 0; i<tex_w*tex_h; i++)
+	//	data[i] = i + 1.0;
+	double data[] = { 1.0 };
+	vector<double> results;
+	results.push_back(data[0]);
+	
+	cout << "\nInput: " << results.back() << "\n";
+	GLuint buffers[2];
+	glGenBuffers(2, buffers);
+
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, buffers[0]);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, buffers[1]);
+
+	//input buffer
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[0]);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(data), data, GL_DYNAMIC_DRAW);
+	//output buffer
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[1]);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(data), NULL, GL_DYNAMIC_READ);
+
+	const int iterations = 10000;
+	double correctAnswer;
+	switch (test)
+	{
+	case 2:			//cos add test
+		correctAnswer = 5404.023058681397174009;
+		break;
+	default:		//sin add test
+		correctAnswer = 8415.709848078965066525;
+		break;
+	}
+
+	for (int i = 0; i < iterations; ++i) {
+		glDispatchCompute(1, 1, 1);
+		glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+		//glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[0]);
+		//glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(data), data);
+		//results.push_back(data[0]);
+	}
+
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[0]);
+	glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(data), data);
+	results.push_back(data[0]);
+	printf("After run %d: \t%0.19f\n", iterations, results.back());
+	printf("Correct Answer: \t%0.19f\n", correctAnswer);
+	printf("Difference: %0.19f\n", correctAnswer - results.back());
+	glfwSetWindowShouldClose(window, GLFW_TRUE);
+	return results.back();
 }
 #pragma endregion
