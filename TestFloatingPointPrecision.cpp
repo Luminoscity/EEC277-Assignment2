@@ -128,8 +128,8 @@ int main(int argc, char *argv[]) {
 
 #pragma region Helper Functions
 void CheckArgs(int argc, char *argv[]){
-	char tests[] = { "tests:\n1: sin add\n2: cos add\n" };
-	int numTests = 2;
+	char tests[] = { "tests:\n1: sin add\n2: cos add\n3: exp\n" };
+	int numTests = 3;
 	if(argc != 3) {
 		fprintf(stderr, "Usage: %s shader_file test_number\n", argv[0]);
 		printf("%s", tests);
@@ -138,6 +138,7 @@ void CheckArgs(int argc, char *argv[]){
 	if (atoi(argv[2]) < 1 || atoi(argv[2]) > numTests) {
 		printf("Tests range from 1 to %d\n", numTests);
 		printf("%s", tests);
+
 	}
 	std::ifstream file(argv[1]);
 	if(!file.good()) {
@@ -220,8 +221,13 @@ float runTest(int test, GLFWwindow *window) {
 	//float* result = (float*)calloc(tex_w*tex_h, sizeof(float));
 	//for (int i = 0; i<tex_w*tex_h; i++)
 	//	data[i] = i + 1.0;
-	double data[] = { 1.0 };
-	vector<double> results;
+	
+	float data[] = { 1.0 };
+	vector<float> results;
+
+	//Angela: comment out double usage because precision qualifiers don't apply to double
+	//double data[] = { 1.0 };
+	//vector<double> results;
 	results.push_back(data[0]);
 	
 	cout << "\nInput: " << results.back() << "\n";
@@ -240,9 +246,12 @@ float runTest(int test, GLFWwindow *window) {
 	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(data), NULL, GL_DYNAMIC_READ);
 
 	const int iterations = 10000;
-	double correctAnswer;
+	double correctAnswer; //Angela: might be worthwhile to state in comments where this comes from (Wolfram?)
 	switch (test)
 	{
+	case 3:			//Angela: exp test
+		correctAnswer = 1.0;	//Angela: #####THIS IS NOT CORRECT YET#####
+		break;
 	case 2:			//cos add test
 		correctAnswer = 5404.023058681397174009;
 		break;
