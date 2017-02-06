@@ -247,28 +247,84 @@ void runTest(int test, GLFWwindow *window, vector<GLuint> *shaders, vector<strin
 								//Only 18 decimal places are used here
 	int64_t correctLargeInteger = 50031545098999707;
 	int decimals = 19;
+	int iter;
+	float cpu_answer_f;
+	double cpu_answer_d;
+
+	//This switch-case statement sets the calculated answer (based on Wolfram) and performs the computation on CPU
 	switch (test) {
-	case SQRT_POW_TEST:		//exp add test
+	case SQRT_POW_TEST:		//sqrt pow test
 		correctAnswer = 2268748.663823218581241414;	//10000*sqrt(sqrt(sqrt(sqrt(3^79)))) + 1
+		iter = 0;
+		cpu_answer_f = 0.0;
+		cpu_answer_d = 0.0;
+		while (iter < 10000) {
+			cpu_answer_f = sqrt(sqrt(sqrt(sqrt(pow(3.0, 79.0))))) + cpu_answer_f;
+			cpu_answer_d = sqrt(sqrt(sqrt(sqrt(pow(3.0, 79.0))))) + cpu_answer_d;
+			iter++;
+		}
 		break;
 	case LOG_POW_ADD_TEST:	//log pow add test
 		correctAnswer = 878899.830934487753116196;	//10000*ln(3^80) + 1
 		//correctAnswer = 0.055131456697415156;		//f(33) for f(n+1)=ln(1+f(n)), f(0) = 0.5
+		iter = 0;
+		cpu_answer_f = 0.0;
+		cpu_answer_d = 0.0;
+		while (iter < 10000) {
+			cpu_answer_f = log(pow(3.0, 80.0)) + cpu_answer_f;
+			cpu_answer_d = log(pow(3.0, 80.0)) + cpu_answer_d;
+			iter++;
+		}
 		break;
 	case LARGE_INT_TEST:	//Large Integer Representation Test
 		iterations = 35;	//3^35 is too big to be perfectly represented by double
 		correctAnswer = 43046721.0;					//3^16 for float test
 		decimals = 1;
 		floatData[0] = 3.0;
+		//seperate cpu calcs for float/double:
+		iter = 0;
+		cpu_answer_f = pow(3.0, 16.0);
+		//cpu_answer_d = pow(3.0, 16.0); //This one coming out very wrong on CPU
+		cpu_answer_d = 3.0;
+		while (iter < 35) {
+			cpu_answer_d = cpu_answer_d * 3.0;
+			iter++;
+		}
 		break;
 	case EXP_ADD_TEST:		//exp add test
 		correctAnswer = 151542.622414792641897604;	//10000*e + 1
+		iter = 0;
+		cpu_answer_f = 0.0;
+		cpu_answer_d = 0.0;
+		while (iter < 10000) {
+			cpu_answer_f = exp(exp(1.0)) + cpu_answer_f;
+			cpu_answer_d = exp(exp(1.0)) + cpu_answer_d;
+			iter++;
+		}
+
 		break;
 	case COS_ADD_TEST:		//cos add test
 		correctAnswer = 5404.023058681397174009;	//10000*cos(1.0) + 1
+		iter = 0;
+		cpu_answer_f = 0.0;
+		cpu_answer_d = 0.0;
+		while (iter < 10000) {
+			cpu_answer_f = cos(1.0) + cpu_answer_f;
+			cpu_answer_d = cos(1.0) + cpu_answer_d;
+			iter++;
+		}
 		break;
 	default:				//sin add test
 		correctAnswer = 8415.709848078965066525;	//10000*sin(1.0) + 1
+		correctAnswer = 5404.023058681397174009;	//10000*cos(1.0) + 1
+		iter = 0;
+		cpu_answer_f = 0.0;
+		cpu_answer_d = 0.0;
+		while (iter < 10000) {
+			cpu_answer_f = sin(1.0) + cpu_answer_f;
+			cpu_answer_d = sin(1.0) + cpu_answer_d;
+			iter++;
+		}
 		break;
 	}
 
@@ -305,16 +361,22 @@ void runTest(int test, GLFWwindow *window, vector<GLuint> *shaders, vector<strin
 	glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(doubleData), doubleData);
 	doubleResults.push_back(doubleData[0]);
 	printf("Iterations:     %d\n", iterations);
-	printf("Results:        %0.*f\n", decimals, doubleResults.back());
+	printf("GPU Results:    %0.*f\n", decimals, doubleResults.back());
 	if (test != LARGE_INT_TEST) {
 		printf("Correct Answer: %0.*f\n", decimals, correctAnswer);
 		printf("Percent Error:  %0.9f\n", abs(correctAnswer - doubleResults.back())
 			                              / correctAnswer * 100);
+		printf("CPU Answer:     %0.*f\n", decimals, cpu_answer_d);
+		printf("CPU Percent Error:  %0.9f\n", abs(correctAnswer - cpu_answer_d)
+											/ correctAnswer * 100);
 	}
 	else {
 		cout << "Correct Answer: " << correctLargeInteger << ".0\n";
 		printf("Diference:      %d.0\n", abs(correctLargeInteger -
 			                               (int64_t)doubleResults.back()));
+		printf("CPU Answer:     %0.*f\n", decimals, cpu_answer_d);
+		printf("CPU Diference:  %d.0\n", abs(correctLargeInteger -
+											(int64_t)cpu_answer_d));
 	}
 
 	//------------------------Float Test---------------------------------------
@@ -334,10 +396,13 @@ void runTest(int test, GLFWwindow *window, vector<GLuint> *shaders, vector<strin
 	glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(floatData), floatData);
 	floatResults.push_back(floatData[0]);
 	printf("Iterations:     %d\n", iterations);
-	printf("Results:        %0.*f\n", decimals, floatResults.back());
+	printf("GPU Results:    %0.*f\n", decimals, floatResults.back());
 	printf("Correct Answer: %0.*f\n", decimals, correctAnswer);
 	printf("Percent Error:  %0.9f\n", abs(correctAnswer - floatResults.back())
 		                              / correctAnswer * 100);
+	printf("CPU Answer:     %0.*f\n", decimals, cpu_answer_f);
+	printf("CPU Percent Error:  %0.9f\n", abs(correctAnswer - cpu_answer_f)
+										/ correctAnswer * 100);
 
 	glfwSetWindowShouldClose(window, GLFW_TRUE);
 }
