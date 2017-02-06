@@ -37,7 +37,7 @@ void printLimits();
 static void error_callback(int error, const char* description);
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 void printInfo(GLFWwindow * window);
-float runTest(int test, GLFWwindow *window);
+void runTest(int test, GLFWwindow *window, vector<GLuint> *shaders, vector<string> *shaderNames);
 #pragma endregion
 
 #pragma region Main
@@ -72,55 +72,31 @@ int main(int argc, char *argv[]) {
 
 	printInfo(window);
 
+	vector<string> shaderNames;
 	//Get shader from file
-	GLuint computeShader;
+	vector<GLuint> shaders;
 	try {
 		cout << "\nGetting shader code from file and compiling...\n";
-		computeShader = ShaderAssist::CreateFromFile(string(argv[1]), GL_COMPUTE_SHADER);
+		shaders = ShaderAssist::GetShadersFromFile(string(argv[1]), GL_COMPUTE_SHADER, &shaderNames);
 	}
 	catch (string ex) {
 		fprintf(stderr, ex.c_str());
 		exit(-1);
 	};
+	cout << "\n--------------------------------------------------\n"
+		<< "SUCCESS! All Shaders Compiled!\n\n";
 
 	//Vertex and fragment shaders are successfully compiled.
-	//Now time to link them together into a program.
-	//Get a program object.
-	GLuint program = glCreateProgram();
-
-	//Attach our shaders to our program
-	glAttachShader(program, computeShader);
-
-	//Link our program
-	try {
-		cout << "Linking program...\n";
-
-		ShaderAssist::LinkProgram(program);
-	}
-	catch (string ex) {
-		glDeleteShader(computeShader);
-		fprintf(stderr, ex.c_str());
-		exit(-1);
-	};
-
-	cout << "\n--------------------------------------------------\n"
-		 << "SUCCESS! Shader Compiled and Linked!\n\n";
+	//Linking and attaching happens in runTest()
 
 	printLimits();
 
 	while (!glfwWindowShouldClose(window))
 	{
-		GLenum err;               /* Everyone is puzzled why this matters. */
-		err = glGetError();       /* But this error-checking makes it work */
-		glUseProgram(program);    /* on Linux */
-		err = glGetError();       /* Weird, huh? */
-		runTest(testNum, window);
+		runTest(testNum, window, &shaders, &shaderNames);
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
-
-	//Always detach shaders after a successful link.
-	glDetachShader(program, computeShader);
 
 	return 0;
 }
@@ -128,7 +104,7 @@ int main(int argc, char *argv[]) {
 
 #pragma region Helper Functions
 void CheckArgs(int argc, char *argv[]){
-	char tests[] = { "tests:\n1: sin add\n2: cos add\n3: exp\n" };
+	char tests[] = { "tests:\n1: sin add\n2: cos add\n3: exp add\n" };
 	int numTests = 3;
 	if(argc != 3) {
 		fprintf(stderr, "Usage: %s shader_file test_number\n", argv[0]);
@@ -214,68 +190,120 @@ void printInfo(GLFWwindow * window) {
 #pragma endregion
 
 #pragma region Test
-float runTest(int test, GLFWwindow *window) {
-	//int tex_w = 16, tex_h = 16;
-	// create test data
-	//float* data = (float*)malloc(tex_w*tex_h * sizeof(float));
-	//float* result = (float*)calloc(tex_w*tex_h, sizeof(float));
-	//for (int i = 0; i<tex_w*tex_h; i++)
-	//	data[i] = i + 1.0;
-	
-	float data[] = { 1.0 };
-	vector<float> results;
+void runTest(int test, GLFWwindow *window, vector<GLuint> *shaders, vector<string> *shaderNames) {
+	//Get a program object.
+	GLuint doubleProgram = glCreateProgram();
+	GLuint floatProgram = glCreateProgram();
+	string doubleTestName = shaderNames->at(2 * (test - 1));
+	string floatTestName = shaderNames->at(2 * (test - 1) + 1);
 
-	//Angela: comment out double usage because precision qualifiers don't apply to double
-	//double data[] = { 1.0 };
-	//vector<double> results;
-	results.push_back(data[0]);
+	//Attach our shaders to our program
+	GLuint doubleShader = shaders->at(2 * (test - 1));
+	GLuint floatShader = shaders->at(2 * (test - 1) + 1);
+	glAttachShader(doubleProgram, doubleShader);
+	glAttachShader(floatProgram, floatShader);
+
+	//Link our programs
+	try {
+		cout << "Linking double program...\n";
+		ShaderAssist::LinkProgram(doubleProgram);
+	}
+	catch (string ex) {
+		glDetachShader(doubleProgram, doubleShader);
+		glDeleteShader(doubleShader);
+		fprintf(stderr, ex.c_str());
+		exit(-1);
+	};
+
+	try {
+		cout << "Linking float program...\n";
+		ShaderAssist::LinkProgram(floatProgram);
+	}
+	catch (string ex) {
+		glDetachShader(floatProgram, floatShader);
+		glDeleteShader(floatShader);
+		fprintf(stderr, ex.c_str());
+		exit(-1);
+	};
+
+	double doubleData[] = { 1.0 };
+	vector<double> doubleResults;
+	doubleResults.push_back(doubleData[0]);
 	
-	cout << "\nInput: " << results.back() << "\n";
+	float floatData[] = { 1.0 };
+	vector<float> floatResults;
+	floatResults.push_back(floatData[0]);
+	
 	GLuint buffers[2];
 	glGenBuffers(2, buffers);
 
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, buffers[0]);
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, buffers[1]);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, buffers[0]);	//double buffer
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, buffers[1]);	//float buffer
 
-	//input buffer
+	//float buffer
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[0]);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(data), data, GL_DYNAMIC_DRAW);
-	//output buffer
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(doubleData), doubleData, GL_DYNAMIC_DRAW);
+	//double buffer
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[1]);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(data), NULL, GL_DYNAMIC_READ);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(floatData), floatData, GL_DYNAMIC_DRAW);
 
-	const int iterations = 10000;
-	double correctAnswer; //Angela: might be worthwhile to state in comments where this comes from (Wolfram?)
-	switch (test)
-	{
-	case 3:			//Angela: exp test
-		correctAnswer = 1.0;	//Angela: #####THIS IS NOT CORRECT YET#####
+	int iterations = 10000;		//May be adjusted per test in switch block
+	double correctAnswer;		//Correct answer calculated to 25 decimals places using Wolfram Alpha
+								//Only 18 decimal places are used here
+	switch (test) {
+	case 3:			//exp add test
+		correctAnswer = 151542.622414792641897604;
 		break;
 	case 2:			//cos add test
-		correctAnswer = 5404.023058681397174009;
+		correctAnswer =   5404.023058681397174009;
 		break;
 	default:		//sin add test
-		correctAnswer = 8415.709848078965066525;
+		correctAnswer =   8415.709848078965066525;
 		break;
 	}
 
+	//------------------------Double Test---------------------------------------
+	GLenum err;						/* Everyone is puzzled why this matters. */
+	err = glGetError();				/* But this error-checking makes it work */
+	glUseProgram(doubleProgram);    /* on Linux */
+	err = glGetError();				/* Weird, huh? */
+
+	cout << "\nRunnning Test: " << doubleTestName << "\n";
 	for (int i = 0; i < iterations; ++i) {
 		glDispatchCompute(1, 1, 1);
 		glMemoryBarrier(GL_ALL_BARRIER_BITS);
-
-		//glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[0]);
-		//glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(data), data);
-		//results.push_back(data[0]);
 	}
 
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[0]);
-	glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(data), data);
-	results.push_back(data[0]);
-	printf("After run %d: \t%0.19f\n", iterations, results.back());
-	printf("Correct Answer: \t%0.19f\n", correctAnswer);
-	printf("Difference: %0.19f\n", correctAnswer - results.back());
+	glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(doubleData), doubleData);
+	doubleResults.push_back(doubleData[0]);
+	printf("Iterations:     %d\n", iterations);
+	printf("Results:        %0.19f\n", doubleResults.back());
+	printf("Correct Answer: %0.19f\n", correctAnswer);
+	printf("Percent Error:  %0.9f\n", abs(correctAnswer - doubleResults.back())
+		                                     / correctAnswer * 100);
+
+	//------------------------Float Test---------------------------------------
+	err = glGetError();
+	glUseProgram(floatProgram);
+	err = glGetError();
+
+	cout << "\nRunnning Test: " << floatTestName << "\n";
+	for (int i = 0; i < iterations; ++i) {
+		glDispatchCompute(1, 1, 1);
+		glMemoryBarrier(GL_ALL_BARRIER_BITS);
+	}
+
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[1]);
+	glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(floatData), floatData);
+	floatResults.push_back(floatData[0]);
+	printf("Iterations:     %d\n", iterations);
+	printf("Results:        %0.19f\n", floatResults.back());
+	printf("Correct Answer: %0.19f\n", correctAnswer);
+	printf("Percent Error:  %0.9f\n", abs(correctAnswer - floatResults.back())
+		                                    / correctAnswer * 100);
+
 	glfwSetWindowShouldClose(window, GLFW_TRUE);
-	return results.back();
 }
 #pragma endregion

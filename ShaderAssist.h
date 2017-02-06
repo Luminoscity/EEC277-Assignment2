@@ -10,9 +10,10 @@ class ShaderAssist
 public:
 	ShaderAssist();
 	~ShaderAssist();
-	//throws error message string if file fails to open OR compilation of shader failed
-	static GLuint CreateFromFile(std::string fileName, GLenum shaderType);
-	//throws error message string if linking failed
+	//throws error message string if file fails to open OR compilation of a shader fails
+	static std::vector<GLuint> GetShadersFromFile(std::string fileName, GLenum shaderType,
+		                                     std::vector<std::string> *shaderNames = NULL);
+	//throws error message string if linking fails
 	static void LinkProgram(GLuint program);
 };
 
