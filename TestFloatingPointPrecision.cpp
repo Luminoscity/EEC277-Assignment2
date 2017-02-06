@@ -28,6 +28,11 @@
 #define DEFAULT_WIN_WIDTH 300
 #define DEFAULT_WIN_HEIGHT 50
 
+#define SIN_ADD_TEST 1
+#define COS_ADD_TEST 2
+#define EXP_ADD_TEST 3
+#define LARGE_INT_TEST 4
+
 using std::string;
 using std::vector;
 using std::cout;
@@ -38,6 +43,7 @@ static void error_callback(int error, const char* description);
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 void printInfo(GLFWwindow * window);
 void runTest(int test, GLFWwindow *window, vector<GLuint> *shaders, vector<string> *shaderNames);
+void runLargeIntegerRepresentationTest(GLuint doubleProgram, GLuint floatProgram);
 #pragma endregion
 
 #pragma region Main
@@ -104,8 +110,9 @@ int main(int argc, char *argv[]) {
 
 #pragma region Helper Functions
 void CheckArgs(int argc, char *argv[]){
-	char tests[] = { "tests:\n1: sin add\n2: cos add\n3: exp add\n" };
-	int numTests = 3;
+	char tests[] = { "tests:\n1: sin add\n2: cos add\n3: exp add\n"
+		             "4: Large Integer Representation\n" };
+	int numTests = 4;
 	if(argc != 3) {
 		fprintf(stderr, "Usage: %s shader_file test_number\n", argv[0]);
 		printf("%s", tests);
@@ -114,7 +121,7 @@ void CheckArgs(int argc, char *argv[]){
 	if (atoi(argv[2]) < 1 || atoi(argv[2]) > numTests) {
 		printf("Tests range from 1 to %d\n", numTests);
 		printf("%s", tests);
-
+		exit(-1);
 	}
 	std::ifstream file(argv[1]);
 	if(!file.good()) {
@@ -231,6 +238,8 @@ void runTest(int test, GLFWwindow *window, vector<GLuint> *shaders, vector<strin
 	doubleResults.push_back(doubleData[0]);
 	
 	float floatData[] = { 1.0 };
+	if (test == LARGE_INT_TEST)
+		floatData[0] = 3.0;
 	vector<float> floatResults;
 	floatResults.push_back(floatData[0]);
 	
@@ -241,25 +250,32 @@ void runTest(int test, GLFWwindow *window, vector<GLuint> *shaders, vector<strin
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, buffers[0]);	//double buffer
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, buffers[1]);	//float buffer
 
-	//float buffer
+	//double buffer
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[0]);
 	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(doubleData), doubleData, GL_DYNAMIC_DRAW);
-	//double buffer
+	//float buffer
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[1]);
 	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(floatData), floatData, GL_DYNAMIC_DRAW);
 
 	int iterations = 10000;		//May be adjusted per test in switch block
 	double correctAnswer;		//Correct answer calculated to 25 decimals places using Wolfram Alpha
 								//Only 18 decimal places are used here
+	int64_t correctLargeInteger = 50031545098999707;
+	int decimals = 19;
 	switch (test) {
-	case 3:			//exp add test
-		correctAnswer = 151542.622414792641897604;
+	case LARGE_INT_TEST:	//Large Integer Representation Test
+		iterations = 35;	//3^35 is too big to be perfectly represented by double
+		correctAnswer = 43046721.0;					//3^16 for float test
+		decimals = 1;
 		break;
-	case 2:			//cos add test
-		correctAnswer =   5404.023058681397174009;
+	case EXP_ADD_TEST:		//exp add test
+		correctAnswer = 151542.622414792641897604;	//10000*e + 1
 		break;
-	default:		//sin add test
-		correctAnswer =   8415.709848078965066525;
+	case COS_ADD_TEST:		//cos add test
+		correctAnswer = 5404.023058681397174009;	//10000*cos(1.0) + 1
+		break;
+	default:				//sin add test
+		correctAnswer = 8415.709848078965066525;	//10000*sin(1.0) + 1
 		break;
 	}
 
@@ -279,16 +295,25 @@ void runTest(int test, GLFWwindow *window, vector<GLuint> *shaders, vector<strin
 	glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(doubleData), doubleData);
 	doubleResults.push_back(doubleData[0]);
 	printf("Iterations:     %d\n", iterations);
-	printf("Results:        %0.19f\n", doubleResults.back());
-	printf("Correct Answer: %0.19f\n", correctAnswer);
-	printf("Percent Error:  %0.9f\n", abs(correctAnswer - doubleResults.back())
-		                                     / correctAnswer * 100);
+	printf("Results:        %0.*f\n", decimals, doubleResults.back());
+	if (test != LARGE_INT_TEST) {
+		printf("Correct Answer: %0.*f\n", decimals, correctAnswer);
+		printf("Percent Error:  %0.9f\n", abs(correctAnswer - doubleResults.back())
+			                              / correctAnswer * 100);
+	}
+	else {
+		cout << "Correct Answer: " << correctLargeInteger << ".0\n";
+		printf("Diference:      %d.0\n", abs(correctLargeInteger -
+			                               (int64_t)doubleResults.back()));
+	}
 
 	//------------------------Float Test---------------------------------------
 	err = glGetError();
 	glUseProgram(floatProgram);
 	err = glGetError();
 
+	if (test == LARGE_INT_TEST)
+		iterations = 1;
 	cout << "\nRunnning Test: " << floatTestName << "\n";
 	for (int i = 0; i < iterations; ++i) {
 		glDispatchCompute(1, 1, 1);
@@ -299,10 +324,10 @@ void runTest(int test, GLFWwindow *window, vector<GLuint> *shaders, vector<strin
 	glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(floatData), floatData);
 	floatResults.push_back(floatData[0]);
 	printf("Iterations:     %d\n", iterations);
-	printf("Results:        %0.19f\n", floatResults.back());
-	printf("Correct Answer: %0.19f\n", correctAnswer);
+	printf("Results:        %0.*f\n", decimals, floatResults.back());
+	printf("Correct Answer: %0.*f\n", decimals, correctAnswer);
 	printf("Percent Error:  %0.9f\n", abs(correctAnswer - floatResults.back())
-		                                    / correctAnswer * 100);
+		                              / correctAnswer * 100);
 
 	glfwSetWindowShouldClose(window, GLFW_TRUE);
 }

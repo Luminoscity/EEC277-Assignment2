@@ -103,4 +103,34 @@ void main() {
   
   input[offset] = exp(exp(1.0)) + input[offset];
 }
+
+
+<<>>4LargeIntegerDoubleTest<<>>
+#version 430
+layout(local_size_x = 16) in;
+layout(binding = 0) buffer inputBuffer {
+	double input[];
+};
+
+void main() {
+  const uint offset = gl_GlobalInvocationID.x;
+  const double base = 3.0;
+  
+  input[offset] = input[offset] * base;
+}
+
+
+<<>>4LargeIntegerFloatTest<<>>
+#version 430
+layout(local_size_x = 16) in;
+layout(binding = 1) buffer inputBuffer {
+	float input[];
+};
+
+void main() {
+  const uint offset = gl_GlobalInvocationID.x;
+  const float power = 16.0;
+  
+  input[offset] = pow(input[offset], power);
+}
 <<>>
