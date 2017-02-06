@@ -133,4 +133,60 @@ void main() {
   
   input[offset] = pow(input[offset], power);
 }
+
+
+<<>>5LogPowAddDoubleTest<<>>
+#version 430
+layout(local_size_x = 16) in;
+layout(binding = 0) buffer inputBuffer {
+	double input[];
+};
+
+void main() {
+  const uint offset = gl_GlobalInvocationID.x;
+  
+  input[offset] = log(pow(3.0, 80.0)) + input[offset];
+}
+
+
+<<>>5LogPowAddFloatTest<<>>
+#version 430
+layout(local_size_x = 16) in;
+layout(binding = 1) buffer inputBuffer {
+	float input[];
+};
+
+void main() {
+  const uint offset = gl_GlobalInvocationID.x;
+  
+  input[offset] = log(pow(3.0, 80.0)) + input[offset];
+}
+
+
+<<>>6SqrtAddDoubleTest<<>>
+#version 430
+layout(local_size_x = 16) in;
+layout(binding = 0) buffer inputBuffer {
+	double input[];
+};
+
+void main() {
+  const uint offset = gl_GlobalInvocationID.x;
+  
+  input[offset] = sqrt(sqrt(sqrt(sqrt(pow(3.0, 79.0))))) + input[offset];
+}
+
+
+<<>>6SqrtAddFloatTest<<>>
+#version 430
+layout(local_size_x = 16) in;
+layout(binding = 1) buffer inputBuffer {
+	float input[];
+};
+
+void main() {
+  const uint offset = gl_GlobalInvocationID.x;
+  
+  input[offset] = sqrt(sqrt(sqrt(sqrt(pow(3.0, 79.0))))) + input[offset];
+}
 <<>>

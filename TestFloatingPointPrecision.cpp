@@ -32,6 +32,8 @@
 #define COS_ADD_TEST 2
 #define EXP_ADD_TEST 3
 #define LARGE_INT_TEST 4
+#define LOG_POW_ADD_TEST 5
+#define SQRT_POW_TEST 6
 
 using std::string;
 using std::vector;
@@ -110,8 +112,9 @@ int main(int argc, char *argv[]) {
 #pragma region Helper Functions
 void CheckArgs(int argc, char *argv[]){
 	char tests[] = { "tests:\n1: sin add\n2: cos add\n3: exp add\n"
-		             "4: Large Integer Representation\n" };
-	int numTests = 4;
+		             "4: large integer representation\n"
+		             "5: log pow add\n6: compound sqrt pow add\n"};
+	int numTests = 6;
 	if(argc != 3) {
 		fprintf(stderr, "Usage: %s shader_file test_number\n", argv[0]);
 		printf("%s", tests);
@@ -232,15 +235,45 @@ void runTest(int test, GLFWwindow *window, vector<GLuint> *shaders, vector<strin
 		exit(-1);
 	};
 
+	//Setup input data
 	double doubleData[] = { 1.0 };
 	vector<double> doubleResults;
-	doubleResults.push_back(doubleData[0]);
 	
 	float floatData[] = { 1.0 };
-	if (test == LARGE_INT_TEST)
-		floatData[0] = 3.0;
 	vector<float> floatResults;
+
+	int iterations = 10000;		//May be adjusted per test in switch block
+	double correctAnswer;		//Correct answer calculated to 25 decimals places using Wolfram Alpha
+								//Only 18 decimal places are used here
+	int64_t correctLargeInteger = 50031545098999707;
+	int decimals = 19;
+	switch (test) {
+	case SQRT_POW_TEST:		//exp add test
+		correctAnswer = 2268748.663823218581241414;	//10000*sqrt(sqrt(sqrt(sqrt(3^79)))) + 1
+		break;
+	case LOG_POW_ADD_TEST:	//log pow add test
+		correctAnswer = 878899.830934487753116196;	//10000*ln(3^80) + 1
+		//correctAnswer = 0.055131456697415156;		//f(33) for f(n+1)=ln(1+f(n)), f(0) = 0.5
+		break;
+	case LARGE_INT_TEST:	//Large Integer Representation Test
+		iterations = 35;	//3^35 is too big to be perfectly represented by double
+		correctAnswer = 43046721.0;					//3^16 for float test
+		decimals = 1;
+		floatData[0] = 3.0;
+		break;
+	case EXP_ADD_TEST:		//exp add test
+		correctAnswer = 151542.622414792641897604;	//10000*e + 1
+		break;
+	case COS_ADD_TEST:		//cos add test
+		correctAnswer = 5404.023058681397174009;	//10000*cos(1.0) + 1
+		break;
+	default:				//sin add test
+		correctAnswer = 8415.709848078965066525;	//10000*sin(1.0) + 1
+		break;
+	}
+
 	floatResults.push_back(floatData[0]);
+	doubleResults.push_back(doubleData[0]);
 	
 	GLuint buffers[2];
 	glGenBuffers(2, buffers);
@@ -255,28 +288,6 @@ void runTest(int test, GLFWwindow *window, vector<GLuint> *shaders, vector<strin
 	//float buffer
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[1]);
 	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(floatData), floatData, GL_DYNAMIC_DRAW);
-
-	int iterations = 10000;		//May be adjusted per test in switch block
-	double correctAnswer;		//Correct answer calculated to 25 decimals places using Wolfram Alpha
-								//Only 18 decimal places are used here
-	int64_t correctLargeInteger = 50031545098999707;
-	int decimals = 19;
-	switch (test) {
-	case LARGE_INT_TEST:	//Large Integer Representation Test
-		iterations = 35;	//3^35 is too big to be perfectly represented by double
-		correctAnswer = 43046721.0;					//3^16 for float test
-		decimals = 1;
-		break;
-	case EXP_ADD_TEST:		//exp add test
-		correctAnswer = 151542.622414792641897604;	//10000*e + 1
-		break;
-	case COS_ADD_TEST:		//cos add test
-		correctAnswer = 5404.023058681397174009;	//10000*cos(1.0) + 1
-		break;
-	default:				//sin add test
-		correctAnswer = 8415.709848078965066525;	//10000*sin(1.0) + 1
-		break;
-	}
 
 	//------------------------Double Test---------------------------------------
 	GLenum err;						/* Everyone is puzzled why this matters. */
