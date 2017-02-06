@@ -285,7 +285,7 @@ void runTest(int test, GLFWwindow *window, vector<GLuint> *shaders, vector<strin
 		iter = 0;
 		cpu_answer_f = pow(3.0, 16.0);
 		//cpu_answer_d = pow(3.0, 16.0); //This one coming out very wrong on CPU
-		cpu_answer_d = 3.0;
+		cpu_answer_d = 1.0;
 		while (iter < 35) {
 			cpu_answer_d = cpu_answer_d * 3.0;
 			iter++;
@@ -316,7 +316,6 @@ void runTest(int test, GLFWwindow *window, vector<GLuint> *shaders, vector<strin
 		break;
 	default:				//sin add test
 		correctAnswer = 8415.709848078965066525;	//10000*sin(1.0) + 1
-		correctAnswer = 5404.023058681397174009;	//10000*cos(1.0) + 1
 		iter = 0;
 		cpu_answer_f = 0.0;
 		cpu_answer_d = 0.0;
